@@ -22,6 +22,8 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
 from ryu.lib.packet import ipv4
+# from mininet.net import Containernet
+# from mininet.node import RemoteController
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -63,6 +65,20 @@ class SimpleSwitch13(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
+
+
+    def malicious_flow(self, src, dst):
+        if src == '10.0.0.251' and dst == '10.0.0.252':
+            return True
+        else:
+            return False
+
+    def deploy_decoy (self):
+        import docker
+        client = docker.from_env()
+        print ('Deploying decoy')
+        client.containers.run("ssh:latest", detach=True, name='decoy-hss')
+
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -108,14 +124,24 @@ class SimpleSwitch13(app_manager.RyuApp):
 
 
             # check IP Protocol and create a match for IP
-        print ('eth type' + str(eth.ethertype))
         if eth.ethertype == ether_types.ETH_TYPE_IP:
-            print 'after'
             ip = pkt.get_protocol(ipv4.ipv4)
             srcip = ip.src
             dstip = ip.dst
-            print ("SOURCE IP" + srcip)
-            print ("DST IP" + dstip)
+
+            #check if flow is malicious
+            if self.malicious_flow(srcip, dstip):
+                print 'malicious flow detected'
+                #send alert to slack
+                #deploy decoy inside mn
+                self.deploy_decoy()
+                #redirect flow to decoy
+                #this can be done by changing the dstip obj to the ip of the decoy
+
+            else:
+                print 'flow is not malicious'
+                #continue as is installing the flow rule
+
             match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP,
                                     ipv4_src=srcip,
                                     ipv4_dst=dstip
@@ -134,3 +160,4 @@ class SimpleSwitch13(app_manager.RyuApp):
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
+

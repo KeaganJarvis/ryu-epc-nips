@@ -1,21 +1,34 @@
-from ryu.base import app_manager
 
-class L2Forwarding(app_manager.RyuApp):
-    def __init__(self, *args, **kwargs):
-        super(L2Forwarding, self).__init__(*args, **kwargs)
+"""
+This is the EPC implementation inside container net
+"""
+from mininet.net import Containernet
+from mininet.node import RemoteController
+from mininet.cli import CLI
+from mininet.link import TCLink
+from mininet.log import info, setLogLevel
+setLogLevel('info')
 
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
-	msg = ev.msg               # Object representing a packet_in data structure.
-        datapath = msg.datapath    # Switch Datapath ID
-        ofproto = datapath.ofproto
-        from ryu.lib.packet import packet
-        from ryu.lib.packet import ethernet
-        pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocol(ethernet.ethernet)
+a = 3
+net = Containernet(controller=RemoteController,autoSetMacs=False)
+info('*** Adding controller\n')
+net.addController('c0')
+info('*** Adding docker containers\n')
+hss = net.addDocker('hss', ip='10.0.0.251', dimage="ssh:latest") #33:33:00:00:00:fb
+mme = net.addDocker('mme', ip='10.0.0.252', dimage="ssh:latest") #fe:e4:1c:1b:df:78
+info('*** Adding switches\n')
+s1 = net.addSwitch('s1')
+#s2 = net.addSwitch('s2')
+info('*** Creating links\n')
+net.addLink(hss, s1)
+#net.addLink(s1, s2, cls=TCLink, delay='100ms', bw=1)
+net.addLink(s1, mme)
+info('*** Starting network\n')
+net.start()
+info('*** Testing connectivity\n')
+#net.ping([hss, mme])
+info('*** Running CLI\n')
+CLI(net)
+info('*** Stopping network')
+net.stop()
 
-        dst = eth.dst
-        src = eth.src
-
-        out = ofp_parser.OFPPacketOut(datapath=dp,in_port=msg.in_port,actions=actions)#Generate the message
-        dp.send_msg(out) #Send the message to the switch

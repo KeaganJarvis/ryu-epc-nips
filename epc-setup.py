@@ -1,31 +1,32 @@
-#!/usr/bin/python
-"""
-This is the most simple example to showcase Containernet.
-"""
-from mininet.net import Mininet
-from mininet.node import RemoteController
-from mininet.cli import CLI
-from mininet.link import TCLink
-from mininet.log import info, setLogLevel
-setLogLevel('info')
 
-net = Mininet(controller=RemoteController)
+# """
+# This is the EPC implementation inside container net
+# """
+# # from mininet.net import Containernet
+# # from mininet.node import RemoteController
+# # from mininet.cli import CLI
+# # from mininet.link import TCLink
+# # from mininet.log import info, setLogLevel
+# setLogLevel('info')
+
+a = 3
+net = Containernet(controller=RemoteController,autoSetMacs=False)
 info('*** Adding controller\n')
-net.addController('c1')
+net.addController('c0')
 info('*** Adding docker containers\n')
-hss = net.addHost('hss', ip='10.0.0.252', mac='42:42:42:42:42:42') #33:33:00:00:00:fb
-mme = net.addHost('mme', ip='10.0.0.252', mac='13:13:13:13:13:13') #fe:e4:1c:1b:df:78 ca:79:7e:42:c3:2c
+hss = net.addDocker('hss', ip='10.0.0.251', dimage="ssh:latest") #33:33:00:00:00:fb
+mme = net.addDocker('mme', ip='10.0.0.252', dimage="ssh:latest") #fe:e4:1c:1b:df:78
 info('*** Adding switches\n')
-s5 = net.addSwitch('s5')
-# s6 = net.addSwitch('s6')
+s1 = net.addSwitch('s1')
+#s2 = net.addSwitch('s2')
 info('*** Creating links\n')
-net.addLink(hss, s5)
-# net.addLink(s5, s6, cls=TCLink, delay='10ms', bw=1)
-net.addLink(s5, mme)
+net.addLink(hss, s1)
+#net.addLink(s1, s2, cls=TCLink, delay='100ms', bw=1)
+net.addLink(s1, mme)
 info('*** Starting network\n')
 net.start()
 info('*** Testing connectivity\n')
-net.ping([hss, mme])
+#net.ping([hss, mme])
 info('*** Running CLI\n')
 CLI(net)
 info('*** Stopping network')
