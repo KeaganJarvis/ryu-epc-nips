@@ -24,6 +24,7 @@ from ryu.lib.packet import ether_types
 from ryu.lib.packet import ipv4
 # from mininet.net import Containernet
 # from mininet.node import RemoteController
+# from test import a
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -32,6 +33,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
+        # import pudb; pudb.set_trace()
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -77,7 +79,33 @@ class SimpleSwitch13(app_manager.RyuApp):
         import docker
         client = docker.from_env()
         print ('Deploying decoy')
-        client.containers.run("ssh:latest", detach=True, name='decoy-hss')
+
+        try:
+            # client.containers.get('decoy-hss')
+            client.containers.run("ssh:latest", detach=True, name='decoy-hss')
+        except docker.errors.APIError as exists:
+            print ("decoy exists")
+
+
+    def alert(self):
+        from slackclient import SlackClient
+        import os
+        # instantiate Slack client
+        slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
+        # starterbot's user ID in Slack: value is assigned after the bot starts up
+        alertbot_id = None
+
+        if slack_client.rtm_connect(with_team_state=False):
+            print("Alert Bot connected and running!")
+            # Read bot's user ID by calling Web API method `auth.test`
+            alertbot_id = slack_client.api_call("auth.test")["user_id"]
+            slack_client.api_call(
+                "chat.postMessage",
+                channel='nips',
+                text='ALERT, malicious flow detected in EPC'
+            )
+        else:
+            print("Connection failed. Exception traceback printed above.")
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
@@ -132,10 +160,11 @@ class SimpleSwitch13(app_manager.RyuApp):
             #check if flow is malicious
             if self.malicious_flow(srcip, dstip):
                 print 'malicious flow detected'
-                #send alert to slack
+                self.alert()
                 #deploy decoy inside mn
                 self.deploy_decoy()
                 #redirect flow to decoy
+                print ("redirecting the flow to the deployed decoy")
                 #this can be done by changing the dstip obj to the ip of the decoy
 
             else:
@@ -160,4 +189,42 @@ class SimpleSwitch13(app_manager.RyuApp):
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
+
+
+############################################################################################################
+#NB DONT FOGET THE MININET FOLDER COPIED INTO /home/keagan/.local/lib/python2.7/site-packages/
+############################################################################################################
+
+# """
+# This is the EPC implementation inside container net
+# """
+# from mininet.net import Containernet
+# from mininet.node import RemoteController
+# # from mininet.cli import CLI
+# from mininet.link import TCLink
+# from mininet.log import info, setLogLevel
+# setLogLevel('info')
+
+# a = 3
+# net = Containernet(controller=RemoteController,autoSetMacs=False)
+# info('*** Adding controller\n')
+# net.addController('c0')
+# info('*** Adding docker containers\n')
+# hss = net.addDocker('hss', ip='10.0.0.251', dimage="ssh:latest") #33:33:00:00:00:fb
+# mme = net.addDocker('mme', ip='10.0.0.252', dimage="ssh:latest") #fe:e4:1c:1b:df:78
+# info('*** Adding switches\n')
+# s1 = net.addSwitch('s1')
+# #s2 = net.addSwitch('s2')
+# info('*** Creating links\n')
+# net.addLink(hss, s1)
+# #net.addLink(s1, s2, cls=TCLink, delay='100ms', bw=1)
+# net.addLink(s1, mme)
+# info('*** Starting network\n')
+# net.start()
+# info('*** Testing connectivity\n')
+# #net.ping([hss, mme])
+# info('*** Running CLI\n')
+# # CLI(net)
+# info('*** Stopping network')
+# net.stop()
 
