@@ -91,7 +91,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         from slackclient import SlackClient
         import os
         # instantiate Slack client
-        slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
+        tkn = os.environ.get('SLACK_BOT_TOKEN')
+        slack_client = SlackClient(tkn)
         # starterbot's user ID in Slack: value is assigned after the bot starts up
         alertbot_id = None
 
@@ -165,6 +166,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.deploy_decoy()
                 #redirect flow to decoy
                 print ("redirecting the flow to the deployed decoy")
+                dstip = '10.0.0.255'
                 #this can be done by changing the dstip obj to the ip of the decoy
 
             else:
